@@ -3,6 +3,7 @@ import time
 import pika
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import json
 
 # Configurações do RabbitMQ
 RABBITMQ_HOST = 'localhost'
@@ -13,13 +14,23 @@ FACAS_QUEUE = 'facas_notifications'
 LASER_DIR = r"D:\Laser"
 FACAS_DIR = r"D:\Laser\FACAS OK"
 
-# Configurar conexão com RabbitMQ
+# Função para enviar mensagem para a fila RabbitMQ
 def send_to_queue(queue_name, message):
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
-    channel = connection.channel()
-    channel.queue_declare(queue=queue_name)
-    channel.basic_publish(exchange='', routing_key=queue_name, body=message)
-    connection.close()
+    try:
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
+        channel = connection.channel()
+        channel.queue_declare(queue=queue_name, durable=True)  # Garantir persistência da fila
+        channel.basic_publish(
+            exchange='',
+            routing_key=queue_name,
+            body=json.dumps(message),
+            properties=pika.BasicProperties(
+                delivery_mode=2,  # Mensagem persistente
+            )
+        )
+        connection.close()
+    except Exception as e:
+        print(f"Erro ao enviar mensagem para a fila {queue_name}: {str(e)}")
 
 # Handler de eventos de arquivo
 class FolderEventHandler(FileSystemEventHandler):
@@ -29,8 +40,13 @@ class FolderEventHandler(FileSystemEventHandler):
     def on_created(self, event):
         if not event.is_directory:
             file_name = os.path.basename(event.src_path)
+            file_info = {
+                "file_name": file_name,
+                "path": event.src_path,
+                "timestamp": time.time()
+            }
             print(f"Novo arquivo detectado: {file_name} em {self.queue_name}")
-            send_to_queue(self.queue_name, file_name)
+            send_to_queue(self.queue_name, file_info)
 
 # Configurar monitoramento de pastas
 def monitor_folder(folder_path, queue_name):
