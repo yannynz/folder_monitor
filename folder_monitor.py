@@ -6,7 +6,12 @@ from watchdog.events import FileSystemEventHandler
 import json
 
 # Configurações do RabbitMQ
-RABBITMQ_HOST = 'localhost'
+RABBITMQ_HOST = '192.168.10.28'  # Corrigido: remova as aspas extras e a vírgula
+RABBITMQ_PORT = 5672
+RABBITMQ_VHOST = '/'
+RABBITMQ_USER = 'guest'
+RABBITMQ_PASSWORD = 'guest'
+
 LASER_QUEUE = 'laser_notifications'
 FACAS_QUEUE = 'facas_notifications'
 
@@ -17,7 +22,16 @@ FACAS_DIR = r"D:\Laser\FACAS OK"
 # Função para enviar mensagem para a fila RabbitMQ
 def send_to_queue(queue_name, message):
     try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
+        # Corrigido: configurando a conexão com os parâmetros corretos
+        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASSWORD)
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                host=RABBITMQ_HOST,
+                port=RABBITMQ_PORT,
+                virtual_host=RABBITMQ_VHOST,
+                credentials=credentials
+            )
+        )
         channel = connection.channel()
         channel.queue_declare(queue=queue_name, durable=True)  # Garantir persistência da fila
         channel.basic_publish(
