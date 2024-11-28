@@ -10,8 +10,8 @@ LASER_QUEUE = 'laser_notifications'
 FACAS_QUEUE = 'facas_notifications'
 
 # Diretórios a serem monitorados
-LASER_DIR = r"D:\DADOS\Laser"
-FACAS_DIR = r"D:\DADOS\Laser\FACAS OK"
+LASER_DIR = r"D:\Laser"
+FACAS_DIR = r"D:\Laser\FACAS OK"
 
 # Configurar conexão com RabbitMQ
 def send_to_queue(queue_name, message):
