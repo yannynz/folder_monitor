@@ -4,9 +4,11 @@ import pika
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import json
+import pytz
+from datetime import datetime
 
 # Configurações do RabbitMQ
-RABBITMQ_HOST = '192.168.10.28'  # Corrigido: remova as aspas extras e a vírgula
+RABBITMQ_HOST = '192.168.10.28'  # Endereço do RabbitMQ
 RABBITMQ_PORT = 5672
 RABBITMQ_VHOST = '/'
 RABBITMQ_USER = 'guest'
@@ -18,6 +20,9 @@ FACAS_QUEUE = 'facas_notifications'
 # Diretórios a serem monitorados
 LASER_DIR = r"D:\Laser"
 FACAS_DIR = r"D:\Laser\FACAS OK"
+
+# Fuso horário de São Paulo
+sp_tz = pytz.timezone('America/Sao_Paulo')
 
 # Função para enviar mensagem para a fila RabbitMQ
 def send_to_queue(queue_name, message, retries=3):
@@ -54,12 +59,18 @@ class FolderEventHandler(FileSystemEventHandler):
     def on_created(self, event):
         if not event.is_directory:
             file_name = os.path.basename(event.src_path)
+
+            # Obter o horário atual no fuso horário de São Paulo
+            now = datetime.now(sp_tz)  # Hora atual em São Paulo
+            timestamp = now.timestamp()  # Converter para timestamp (segundos desde a epoch)
+
+            # Preparar a mensagem com o timestamp correto
             file_info = {
                 "file_name": file_name,
                 "path": event.src_path,
-                "timestamp": time.time()
+                "timestamp": timestamp
             }
-            print(f"Novo arquivo detectado: {file_name} em {self.queue_name} {time.time()}")
+            print(f"Novo arquivo detectado: {file_name} em {self.queue_name} {timestamp}")
             send_to_queue(self.queue_name, file_info)
 
 # Configurar monitoramento de pastas
