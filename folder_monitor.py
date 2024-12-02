@@ -20,31 +20,31 @@ LASER_DIR = r"D:\Laser"
 FACAS_DIR = r"D:\Laser\FACAS OK"
 
 # Função para enviar mensagem para a fila RabbitMQ
-def send_to_queue(queue_name, message):
-    try:
-        # Corrigido: configurando a conexão com os parâmetros corretos
-        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASSWORD)
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(
+def send_to_queue(queue_name, message, retries=3):
+    for attempt in range(retries):
+        try:
+            # Envio da mensagem
+            credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASSWORD)
+            connection = pika.BlockingConnection(pika.ConnectionParameters(
                 host=RABBITMQ_HOST,
                 port=RABBITMQ_PORT,
                 virtual_host=RABBITMQ_VHOST,
-                credentials=credentials
+                credentials=credentials))
+            channel = connection.channel()
+            channel.queue_declare(queue=queue_name, durable=True)
+            channel.basic_publish(
+                exchange='',
+                routing_key=queue_name,
+                body=json.dumps(message),
+                properties=pika.BasicProperties(delivery_mode=2)
             )
-        )
-        channel = connection.channel()
-        channel.queue_declare(queue=queue_name, durable=True)  # Garantir persistência da fila
-        channel.basic_publish(
-            exchange='',
-            routing_key=queue_name,
-            body=json.dumps(message),
-            properties=pika.BasicProperties(
-                delivery_mode=2,  # Mensagem persistente
-            )
-        )
-        connection.close()
-    except Exception as e:
-        print(f"Erro ao enviar mensagem para a fila {queue_name}: {str(e)}")
+            connection.close()
+            print(f"Mensagem enviada para {queue_name}: {message}")
+            return
+        except Exception as e:
+            print(f"Tentativa {attempt + 1} falhou: {str(e)}")
+            time.sleep(2 ** attempt)  # Backoff exponencial
+    print(f"Erro ao enviar mensagem após {retries} tentativas.")
 
 # Handler de eventos de arquivo
 class FolderEventHandler(FileSystemEventHandler):
@@ -59,7 +59,7 @@ class FolderEventHandler(FileSystemEventHandler):
                 "path": event.src_path,
                 "timestamp": time.time()
             }
-            print(f"Novo arquivo detectado: {file_name} em {self.queue_name}")
+            print(f"Novo arquivo detectado: {file_name} em {self.queue_name} {time.time()}")
             send_to_queue(self.queue_name, file_info)
 
 # Configurar monitoramento de pastas
