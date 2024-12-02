@@ -8,7 +8,7 @@ import pytz
 from datetime import datetime
 
 # Configurações do RabbitMQ
-RABBITMQ_HOST = '192.168.10.28'  # Endereço do RabbitMQ
+RABBITMQ_HOST = '192.168.10.13'  # Endereço do RabbitMQ
 RABBITMQ_PORT = 5672
 RABBITMQ_VHOST = '/'
 RABBITMQ_USER = 'guest'
